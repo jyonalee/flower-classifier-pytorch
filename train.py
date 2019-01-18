@@ -100,16 +100,19 @@ def train_model(model, criterion, optimizer, scheduler, gpu_mode, data_loader, n
 
 
 def main():
-    #model_input = input("Type in the desired model architecture to train the model (vgg16): ")
     model_input = 'vgg16'
     learning_rate = 0.01
     hidden_units = 512
     training_epochs = 20
     data_dir = 'flower_data'    
+    model_name = 'model_flower_classifier'
+
+    #model_input = input("Type in the desired model architecture to train the model (options: vgg16): ")
+    #data_dir = input("Type in the directory of the training dataset: ")
     #learning_rate = float(input("Type in the desired learning rate to train the model (ie. 0.01): "))
     #hidden_units = int(input("Type in the desired number of hidden units to train the model (greater than 102): "))
     #training_epochs = int(input("Type in the desired iterations to train the model: "))
-    #data_dir = input("Type in the directory of the training dataset: ")
+    #model_name = input("Name of the trained model: ")
 
 
     print('------------------------------------------')
@@ -223,7 +226,7 @@ def main():
 
     print('Saving best model...')
     model.class_to_idx = train_dataset.class_to_idx
-    torch.save(model.state_dict(), 'model_flower_classifier.pt')
+    torch.save(model.state_dict(), model_name + '.pt')
     print('Training Complete! BYE!')
 
 main()

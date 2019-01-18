@@ -71,6 +71,11 @@ def main():
     class_values_json = 'cat_to_name.json'
     topk = 5
     model_file = 'model_flower_classifier.pt'
+    
+    #class_values_json = 'cat_to_name.json'
+    #model_file = input("Input the path to the model file for prediction: ")
+    #topk = int(input("How many possible predictions to be displayed per input? (topK): "))
+    #test_img_path = input("Input the path to the image to be predicted: ")
 
     with open(class_values_json, 'r') as f:
         cat_to_name = json.load(f)
