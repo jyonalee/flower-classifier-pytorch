@@ -21,7 +21,7 @@ import json
 
 
 
-def train_model(model, criterion, optimizer, scheduler, gpu_mode, data_loader, n_epochs=10):
+def train_model(model, criterion, optimizer, gpu_mode, data_loader, n_epochs=10):
     # keeping track of best weights
     best_model_wts = copy.deepcopy(model.state_dict())
     valid_loss_min = np.Inf # track change in validation loss
@@ -36,7 +36,6 @@ def train_model(model, criterion, optimizer, scheduler, gpu_mode, data_loader, n
             valid_acc = 0.0
             
             if phase == 'train':
-                scheduler.step()
                 model.train()  # Set model to training mode
             else:
                 model.eval()   # Set model to evaluate mode
@@ -97,7 +96,19 @@ def train_model(model, criterion, optimizer, scheduler, gpu_mode, data_loader, n
     model.load_state_dict(best_model_wts)
     return model
 
-
+# Save the checkpoint, for VGG16
+def save_checkpoint(model, optimizer, model_file):
+    model.class_to_idx = train_dataset.class_to_idx
+    parameters = {
+        'class_to_idx': model.class_to_idx,
+        #'epochs': model.epochs,
+        'classifier': model.classifier,
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer,
+        'optimizer_state_dict': optimizer.state_dict()
+    }
+    
+    torch.save(parameters, model_file)
 
 def main():
     model_input = 'vgg16'
@@ -105,7 +116,7 @@ def main():
     hidden_units = 512
     training_epochs = 20
     data_dir = 'flower_data'    
-    model_name = 'model_flower_classifier'
+    model_name = 'model_flower_classifier512'
 
     #model_input = input("Type in the desired model architecture to train the model (options: vgg16): ")
     #data_dir = input("Type in the directory of the training dataset: ")
@@ -196,10 +207,11 @@ def main():
 
     num_features = model.classifier[-1].in_features
     model.classifier[6] = nn.Sequential(
-                              nn.Linear(num_features, hidden_units), 
-                              nn.ReLU(), 
-                              nn.Dropout(0.5),
-                              nn.Linear(hidden_units, len(cat_to_name)))
+                          nn.Linear(num_features, 512), 
+                          nn.ReLU(), 
+                          nn.Dropout(0.4),
+                          nn.Linear(512, len(cat_to_name)),
+                          nn.LogSoftmax(dim=1))
 
     print(model)
     print('Generated Model has been printed!')
@@ -208,9 +220,8 @@ def main():
 
 
     # define the loss function and optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate)
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+    criterion = nn.NLLLoss()
+    optimizer = optim.Adam(model.parameters())
 
 
     if gpu_mode:
@@ -222,11 +233,10 @@ def main():
     print('Commencing training...')
     print('...')
     print()
-    model = train_model(model, criterion, optimizer, exp_lr_scheduler, gpu_mode, data_loader, n_epochs=training_epochs)
+    model = train_model(model, criterion, optimizer, gpu_mode, data_loader, n_epochs=training_epochs)
 
     print('Saving best model...')
-    model.class_to_idx = train_dataset.class_to_idx
-    torch.save(model.state_dict(), model_name + '.pt')
+    save_checkpoint(model, optimizer, model_name + '.pt')
     print('Training Complete! BYE!')
 
 main()

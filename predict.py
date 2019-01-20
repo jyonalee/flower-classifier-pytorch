@@ -17,8 +17,27 @@ import json
 
 
 
-def load_checkpoint(model, model_file):
-    return model.load_state_dict(torch.load(model_file))
+# Function that loads a checkpoint and rebuilds the model (VGG16)
+def load_checkpoint(model_file):
+    checkpoint = torch.load(model_file)
+    
+    model = models.vgg16(pretrained=True)
+    # freeze parameters
+    for param in model.parameters():
+        param.requires_grad = False
+    
+    model.classifier = checkpoint['classifier']
+    model.load_state_dict(checkpoint['state_dict'])
+    
+    # model specifics
+    model.class_to_idx = checkpoint['class_to_idx']
+    #model.epochs = checkpoint['epochs']
+    
+    #optimizer
+    optimizer = checkpoint['optimizer']
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    
+    return model, optimizer
 
 def process_image(image):
     ''' Scales, crops, and normalizes a PIL image for a PyTorch model,
@@ -80,24 +99,7 @@ def main():
     with open(class_values_json, 'r') as f:
         cat_to_name = json.load(f)
     
-    model = models.vgg16(pretrained=True)
-    # Freeze training for all layers
-    for param in model.parameters():
-        param.requires_grad = False
-
-
-    # Newly created modules have require_grad=True by default
-    num_features = model.classifier[-1].in_features
-    model.classifier[6] = nn.Sequential(
-                          nn.Linear(num_features, 512), 
-                          nn.ReLU(), 
-                          nn.Dropout(0.4),
-                          nn.Linear(512, len(cat_to_name)))
-    model.classifier
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=0.01)
-
-    model = load_checkpoint(model, model_file)
+    model, optimizer = load_checkpoint(model_file)
     _, probs, preds = predict(test_img_path, model, topk)
 
 
@@ -107,11 +109,12 @@ def main():
     print("Predicting what kind of flower this is...")
     print("...")
     print("...")
-    print('This flower is most likely a {}! With a {:.6f} probability!').format(classes[0], probs[0][0])
+    print('This flower is most likely a {} with a {:.6f} probability!'.format(classes[0], probs[0][0]))
 
     print()
     print('This flower could also possibly be:')
     for i in range(len(probs[0])):
-        print('{} with a {:.6f} probability').format(classes[i], probs[0][i])
+        if i != 0:
+            print('{} with a {:.6f} probability'.format(classes[i], probs[0][i]))
 
 main()
