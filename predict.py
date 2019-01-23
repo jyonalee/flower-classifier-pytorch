@@ -20,18 +20,24 @@ import json
 # Function that loads a checkpoint and rebuilds the model (VGG16)
 def load_checkpoint(model_file):
     checkpoint = torch.load(model_file)
-    
-    model = models.vgg16(pretrained=True)
+    if 'vgg19' in model_file:
+        model = models.vgg19(pretrained=True)
+    elif 'vgg16' in model_file:
+        model = models.vgg16(pretrained=True)
+    elif 'resnet152' in model_file:
+        model = models.resnet152(pretrained=True)
     # freeze parameters
     for param in model.parameters():
         param.requires_grad = False
     
-    model.classifier = checkpoint['classifier']
+    if 'vgg' in model_file:
+        model.classifier = checkpoint['classifier']
+    elif 'resnet' in model_file:
+        model.fc = checkpoint['classifier']
     model.load_state_dict(checkpoint['state_dict'])
     
     # model specifics
     model.class_to_idx = checkpoint['class_to_idx']
-    #model.epochs = checkpoint['epochs']
     
     #optimizer
     optimizer = checkpoint['optimizer']

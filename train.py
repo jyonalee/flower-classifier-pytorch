@@ -19,9 +19,7 @@ import time
 import copy
 import json
 
-
-
-def train_model(model, criterion, optimizer, gpu_mode, data_loader, n_epochs=10):
+def train_model(model, criterion, optimizer, scheduler, gpu_mode, data_loader, n_epochs=10):
     # keeping track of best weights
     best_model_wts = copy.deepcopy(model.state_dict())
     valid_loss_min = np.Inf # track change in validation loss
@@ -36,6 +34,7 @@ def train_model(model, criterion, optimizer, gpu_mode, data_loader, n_epochs=10)
             valid_acc = 0.0
             
             if phase == 'train':
+                # scheduler.step()
                 model.train()  # Set model to training mode
             else:
                 model.eval()   # Set model to evaluate mode
@@ -69,12 +68,16 @@ def train_model(model, criterion, optimizer, gpu_mode, data_loader, n_epochs=10)
                         # convert output probabilities to predicted class
                         _, preds = torch.max(output, 1)    
                         valid_acc += torch.sum(preds == target.data)
+                        
                     
                     # update average running loss 
                     running_loss += loss.item()*data.size(0)
 
             # calculate average losses
             running_losses[phase] = running_loss/len(data_loader[phase].dataset)
+            if phase == 'valid':
+                # reduce learning rate only when the validation loss doesnt decrease for a bit.
+                scheduler.step(running_losses[phase])
         valid_accuracy = float(valid_acc)/float(len(data_loader['valid'].dataset))
 
         # print training/validation statistics 
@@ -96,27 +99,39 @@ def train_model(model, criterion, optimizer, gpu_mode, data_loader, n_epochs=10)
     model.load_state_dict(best_model_wts)
     return model
 
-# Save the checkpoint, for VGG16
-def save_checkpoint(model, optimizer, model_file):
-    model.class_to_idx = train_dataset.class_to_idx
-    parameters = {
-        'class_to_idx': model.class_to_idx,
-        #'epochs': model.epochs,
-        'classifier': model.classifier,
-        'state_dict': model.state_dict(),
-        'optimizer': optimizer,
-        'optimizer_state_dict': optimizer.state_dict()
-    }
+# Save the checkpoint
+def save_checkpoint(model, optimizer, scheduler, model_file, class_to_idx):
+    model.class_to_idx = class_to_idx
+    if 'VGG' in str(model.__class__.__name__):
+        parameters = {
+            'class_to_idx': model.class_to_idx,
+            'classifier': model.classifier,
+            'state_dict': model.state_dict(),
+            'optimizer': optimizer,
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler': scheduler,
+            'scheduler_state_dict': scheduler.state_dict()
+        }
+    elif 'ResNet' in str(model.__class__.__name__):
+        parameters = {
+            'class_to_idx': model.class_to_idx,
+            'classifier': model.fc,
+            'state_dict': model.state_dict(),
+            'optimizer': optimizer,
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler': scheduler,
+            'scheduler_state_dict': scheduler.state_dict()
+        }
     
     torch.save(parameters, model_file)
 
 def main():
-    model_input = 'vgg16'
-    learning_rate = 0.01
-    hidden_units = 512
-    training_epochs = 20
+    model_input = 'vgg19'
+    learning_rate = 0.001
+    hidden_units = 4096
+    training_epochs = 30
     data_dir = 'flower_data'    
-    model_name = 'model_flower_classifier512'
+    model_name = 'model_flower_classifier_'+model_input
 
     #model_input = input("Type in the desired model architecture to train the model (options: vgg16): ")
     #data_dir = input("Type in the directory of the training dataset: ")
@@ -145,7 +160,7 @@ def main():
     valid_dir = os.path.join(data_dir, 'valid')
 
     # Define batch size
-    batch_size = 20
+    batch_size = 32
     # Define transforms for the training and validation sets
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -200,18 +215,31 @@ def main():
     if model_input == 'vgg16':
         # Build and train network
         model = models.vgg16(pretrained=True)
+    elif model_input == 'vgg19':
+        # Build and train network
+        model = models.vgg19(pretrained=True)
+    elif model_input == 'resnet152':
+        model = models.resnet152(pretrained=True)
 
     # Freeze training for all layers
     for param in model.parameters():
         param.requires_grad = False
 
-    num_features = model.classifier[-1].in_features
-    model.classifier[6] = nn.Sequential(
-                          nn.Linear(num_features, 512), 
-                          nn.ReLU(), 
-                          nn.Dropout(0.4),
-                          nn.Linear(512, len(cat_to_name)),
-                          nn.LogSoftmax(dim=1))
+    if 'vgg' in model_input:
+        num_features = model.classifier[-1].in_features
+        model.classifier[6] = nn.Sequential(
+                              nn.Linear(num_features, 512), 
+                              nn.ReLU(), 
+                              nn.Linear(512, len(cat_to_name)),
+                              nn.LogSoftmax(dim=1))
+    elif 'resnet' in model_input:
+        num_features = model.fc.in_features
+        model.fc = nn.Sequential(
+                                nn.Linear(num_features, 512), 
+                                  nn.ReLU(), 
+                                  nn.Dropout(0.4),
+                                  nn.Linear(512, len(cat_to_name)),
+                                  nn.LogSoftmax(dim=1))
 
     print(model)
     print('Generated Model has been printed!')
@@ -221,7 +249,8 @@ def main():
 
     # define the loss function and optimizer
     criterion = nn.NLLLoss()
-    optimizer = optim.Adam(model.parameters())
+    optimizer = optim.Adam(model.parameters(),lr=learning_rate)
+    m_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min',patience=3,verbose=True)
 
 
     if gpu_mode:
@@ -233,10 +262,10 @@ def main():
     print('Commencing training...')
     print('...')
     print()
-    model = train_model(model, criterion, optimizer, gpu_mode, data_loader, n_epochs=training_epochs)
+    model = train_model(model, criterion, optimizer, m_lr_scheduler, gpu_mode, data_loader, n_epochs=training_epochs)
 
     print('Saving best model...')
-    save_checkpoint(model, optimizer, model_name + '.pt')
+    save_checkpoint(model, optimizer, m_lr_scheduler, model_name + '.pt', train_dataset.class_to_idx)
     print('Training Complete! BYE!')
 
 main()
