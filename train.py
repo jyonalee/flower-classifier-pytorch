@@ -165,8 +165,11 @@ def main():
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
     train_data_transforms = transforms.Compose([
-            transforms.RandomResizedCrop(224),
+            transforms.RandomResizedCrop(size=256, scale=(0.8, 1.0)),
+            transforms.RandomRotation(degrees=15),
+            transforms.ColorJitter(),
             transforms.RandomHorizontalFlip(),
+            transforms.CenterCrop(size=224),
             transforms.ToTensor(),
             normalize,
         ])
@@ -192,12 +195,10 @@ def main():
 
     # Using the image datasets and the trainforms, define the dataloaders
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=False,
-        num_workers=4, pin_memory=True)
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
     validate_loader = torch.utils.data.DataLoader(
-        validate_dataset, batch_size=batch_size, shuffle=False,
-        num_workers=4, pin_memory=True)
+        validate_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
     data_loader = {}
     data_loader['train'] = train_loader
