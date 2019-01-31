@@ -238,6 +238,7 @@ def main():
         model.fc = nn.Sequential(
                                 nn.Linear(num_features, 512), 
                                   nn.ReLU(), 
+                                  nn.BatchNorm1d(512),
                                   nn.Dropout(0.4),
                                   nn.Linear(512, len(cat_to_name)),
                                   nn.LogSoftmax(dim=1))
