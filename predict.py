@@ -95,7 +95,7 @@ def main():
     test_img_path = '/home/ec2-user/test_images/image_05188.jpg'
     class_values_json = 'cat_to_name.json'
     topk = 5
-    model_file = 'model_flower_classifier.pt'
+    model_file = 'model_flower_classifier_resnet152.pt'
     
     #class_values_json = 'cat_to_name.json'
     #model_file = input("Input the path to the model file for prediction: ")
