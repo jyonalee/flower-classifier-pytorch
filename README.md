@@ -33,3 +33,22 @@ trains the model to classify flower species. Takes in hyperparameters as well as
 
 predicts input image(s) of the top k (user input) likely flower species with corresponding 
 probabilities. Takes in user input of path of trained model and path of test image to be predicted.
+
+### Using [Google Colab](https://colab.research.google.com/)
+Colab is a cloud hosted jupyter notebook provided to the public for free by Google. The cool thing with 
+Colab is that you don't need to manage your own servers and you can also utilize the GPU for free!
+Importing notebooks from Github is pretty easy. Just type in the below in your browser
+```
+https://colab.research.google.com/github/jyonalee/flower-classifier-pytorch/blob/master/Image Classifier Project.ipynb
+```
+This will load the notebook in colab. Since Colab provisions a new environment each time
+access the service, you will need to set up the necessary environment and datasets to
+the provisioned instance.
+Run the following commands before executing anything on the notebook
+```
+# this snippet downloads the repo and dataset and sets it up for google colab useage
+!git clone https://github.com/jyonalee/flower-classifier-pytorch.git
+!mv flower-classifier-pytorch/* .
+!wget https://s3.amazonaws.com/content.udacity-data.com/courses/nd188/flower_data.zip
+!unzip flower_data.zip
+```
